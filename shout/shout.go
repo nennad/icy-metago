@@ -129,6 +129,7 @@ func StreamMeta(url string) {
 	metaChan := extractMetadata(resp.Body, amount)
 
 	for meta := range metaChan {
+		fmt.Println("New meta:")
 		fmt.Printf("%s\n", meta)
 	}
 }
