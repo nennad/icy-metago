@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/Leimy/icy-metago/shout"
 	"os"
+
+	"github.com/nennad/icy-metago/shout"
 )
 
 func usage(pname string) {

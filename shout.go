@@ -3,39 +3,33 @@ package shout
 import (
 	"bufio"
 	"fmt"
-	"github.com/Leimy/icy-metago/bot"
 	"io"
 	"log"
 	"net/http"
 	"strings"
-	"github.com/Leimy/icy-metago/twitter"
 )
 
 // Auto settings stuff
 const (
 	noOperation = iota
-	toggleTweet
 	toggleLast
 	get
 )
 
 type autoSettings struct {
-	Op int
-	Tweet bool
+	Op   int
 	Last bool
 }
 
-func startAutoSettings() (chan autoSettings) {
+func startAutoSettings() chan autoSettings {
 	settings := make(chan autoSettings)
 	go func() {
 		curSettings := &autoSettings{}
 		for {
-			s := <- settings
-			switch (s.Op) {
+			s := <-settings
+			switch s.Op {
 			case noOperation:
 				return
-			case toggleTweet:
-				curSettings.Tweet = !curSettings.Tweet
 			case toggleLast:
 				curSettings.Last = !curSettings.Last
 			case get:
@@ -47,18 +41,15 @@ func startAutoSettings() (chan autoSettings) {
 	return settings
 }
 
-func toggleAutoTweet(settings chan autoSettings) {
-	settings <- autoSettings{toggleTweet, false, false}
-}
-
 func toggleAutoLast(settings chan autoSettings) {
-	settings <- autoSettings{toggleLast, false, false}
+	settings <- autoSettings{toggleLast, false}
 }
 
-func getAutoSettings(settings chan autoSettings)  autoSettings {
-	settings <- autoSettings{get, false, false}
-	return <- settings
+func getAutoSettings(settings chan autoSettings) autoSettings {
+	settings <- autoSettings{get, false}
+	return <-settings
 }
+
 // end end auto settings
 
 type icyparseerror struct {
@@ -93,7 +84,7 @@ func extractMetadata(rdr io.Reader, skip int) <-chan string {
 			if err != nil {
 				log.Printf("Failed: %v\n", err)
 				close(ch)
-				break;
+				break
 			}
 			c, err := bufrdr.ReadByte()
 			if err != nil {
@@ -139,10 +130,10 @@ func StreamMeta(url string) {
 
 	for meta := range metaChan {
 		fmt.Printf("%s\n", meta)
-	}		
+	}
 }
 
-func GetMeta(url string, bot *bot.Bot, requestChan chan string) {
+func GetMeta(url string, requestChan chan string) {
 	log.Printf("Shoutcast stream metadata yanker v0.5\n")
 	client := &http.Client{}
 
@@ -170,40 +161,22 @@ func GetMeta(url string, bot *bot.Bot, requestChan chan string) {
 
 	var lastsong string
 	settings := startAutoSettings()
-	
+
 	for {
 		select {
 		case lastsong = <-metaChan:
 			if lastsong == "" {
 				return
 			}
-			auto_settings := getAutoSettings(settings)
-			if  auto_settings.Last {
-				bot.StringReplyCommand(fmt.Sprintf("Now Playing: %s", lastsong))
-			}
-			
-			if auto_settings.Tweet {
-				twitter.Tweet(lastsong)
-			}
-					
+
 		case request := <-requestChan:
-			switch (request) {
-			case "?autotweet?":
-				toggleAutoTweet(settings)
-				atonoff := getAutoSettings(settings)
-				log.Printf("AUTOTWEET: %v\n", atonoff.Tweet)
-				bot.StringReplyCommand(fmt.Sprintf("autotweeting is %v", atonoff.Tweet))
+			switch request {
 			case "?autolast?":
 				toggleAutoLast(settings)
 				alonoff := getAutoSettings(settings)
 				log.Printf("AUTOLAST: %v\n", alonoff.Last)
-				bot.StringReplyCommand(fmt.Sprintf("autolast is %v", alonoff.Last))
 			case "?lastsong?":
 				log.Printf("Got a request to print the metadata which is: %s\n", lastsong)
-				bot.StringReplyCommand(lastsong)
-			case "?tweet?":
-				log.Printf("Got a request to tweet that meta (%s)\n", lastsong)
-				twitter.Tweet(lastsong)
 			case "":
 				log.Printf("Bot died!, we're out too!")
 				return
